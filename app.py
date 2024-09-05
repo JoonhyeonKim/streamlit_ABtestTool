@@ -26,8 +26,6 @@ st.markdown("""
 # 세션 상태 초기화
 if 'test_results' not in st.session_state:
     st.session_state.test_results = []
-if 'last_run_results' not in st.session_state:
-    st.session_state.last_run_results = None
 if 'current_settings' not in st.session_state:
     st.session_state.current_settings = {
         'model_a': 'gpt-3.5-turbo',
@@ -44,8 +42,6 @@ if 'current_settings' not in st.session_state:
         'frequency_penalty_b': 0.0,
         'system_prompt': '당신은 도움이 되는 AI입니다.',
     }
-if 'save_results' not in st.session_state:
-    st.session_state.save_results = False
 
 # 모델 응답을 생성하는 함수
 def generate_model_response(model, system_prompt, user_input, temperature, max_tokens, top_p, presence_penalty, frequency_penalty):
@@ -71,18 +67,45 @@ def generate_model_response(model, system_prompt, user_input, temperature, max_t
         except Exception as e:
             return f"Error: {str(e)}"
 
-# 사용자 입력 처리 및 테스트 실행 함수
-def process_user_input_and_run_test():
-    st.session_state.processed_input = st.session_state.user_input
-    st.session_state.run_test = True
-
 # 결과를 JSON 파일로 저장하는 함수
-def save_results_to_json(results):
-    if results:
+def save_results_to_json():
+    if st.session_state.test_results:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"test_results_{timestamp}.json"
+        
+        # 새로운 JSON 구조 생성
+        json_data = {
+            "system_prompt": st.session_state.current_settings['system_prompt'],
+            "user_input": st.session_state.test_results[0]['user_input'],
+            "settings": {
+                "model_a": {
+                    "name": st.session_state.current_settings['model_a'],
+                    "temperature": st.session_state.current_settings['temperature_a'],
+                    "max_tokens": st.session_state.current_settings['max_tokens_a'],
+                    "top_p": st.session_state.current_settings['top_p_a'],
+                    "presence_penalty": st.session_state.current_settings['presence_penalty_a'],
+                    "frequency_penalty": st.session_state.current_settings['frequency_penalty_a']
+                },
+                "model_b": {
+                    "name": st.session_state.current_settings['model_b'],
+                    "temperature": st.session_state.current_settings['temperature_b'],
+                    "max_tokens": st.session_state.current_settings['max_tokens_b'],
+                    "top_p": st.session_state.current_settings['top_p_b'],
+                    "presence_penalty": st.session_state.current_settings['presence_penalty_b'],
+                    "frequency_penalty": st.session_state.current_settings['frequency_penalty_b']
+                }
+            },
+            "results": [
+                {
+                    "test_number": result['test_number'],
+                    "model_a_response": result['model_a_response'],
+                    "model_b_response": result['model_b_response']
+                } for result in st.session_state.test_results
+            ]
+        }
+        
         with open(filename, "w", encoding="utf-8") as f:
-            json.dump(results, f, ensure_ascii=False, indent=2)
+            json.dump(json_data, f, ensure_ascii=False, indent=2)
         st.success(f"결과가 {filename}에 저장되었습니다.")
     else:
         st.warning("저장할 테스트 결과가 없습니다.")
@@ -104,74 +127,23 @@ with col1:
     # 저장 옵션
     save_option = st.checkbox("결과 저장", value=False)
     
-    if 'processed_input' in st.session_state and st.session_state.processed_input:
-        st.write(f"**사용자:** {st.session_state.processed_input}")
-        
-        if st.session_state.get('run_test', False):
-            st.session_state.last_run_results = []
-            for test_num in range(num_tests):
-                st.write(f"**테스트 #{test_num + 1}**")
-                subcol1, subcol2 = st.columns(2)
-                test_result = {
-                    "test_number": test_num + 1,
-                    "user_input": st.session_state.processed_input,
-                    "system_prompt": st.session_state.current_settings['system_prompt'],
-                    "models": {}
-                }
-                for col, model_key, model_name in [(subcol1, 'model_a', '모델 A'), (subcol2, 'model_b', '모델 B')]:
-                    with col:
-                        response = generate_model_response(
-                            st.session_state.current_settings[model_key],
-                            st.session_state.current_settings['system_prompt'],
-                            st.session_state.processed_input,
-                            st.session_state.current_settings[f'temperature_{model_key[-1]}'],
-                            st.session_state.current_settings[f'max_tokens_{model_key[-1]}'],
-                            st.session_state.current_settings[f'top_p_{model_key[-1]}'],
-                            st.session_state.current_settings[f'presence_penalty_{model_key[-1]}'],
-                            st.session_state.current_settings[f'frequency_penalty_{model_key[-1]}']
-                        )
-                        st.markdown(f"""
-                        <div style="border:1px solid #ddd; padding:10px; border-radius:5px;">
-                            <h4 style="margin-top:0;">{st.session_state.current_settings[model_key]}</h4>
-                            <p>{response}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        test_result["models"][model_name] = {
-                            "name": st.session_state.current_settings[model_key],
-                            "response": response,
-                            "settings": {
-                                "temperature": st.session_state.current_settings[f'temperature_{model_key[-1]}'],
-                                "max_tokens": st.session_state.current_settings[f'max_tokens_{model_key[-1]}'],
-                                "top_p": st.session_state.current_settings[f'top_p_{model_key[-1]}'],
-                                "presence_penalty": st.session_state.current_settings[f'presence_penalty_{model_key[-1]}'],
-                                "frequency_penalty": st.session_state.current_settings[f'frequency_penalty_{model_key[-1]}']
-                            }
-                        }
-                st.write("---")
-                st.session_state.last_run_results.append(test_result)
-            st.session_state.run_test = False
-            
-            # 저장 옵션이 선택되었을 때만 결과 저장
-            if save_option:
-                save_results_to_json(st.session_state.last_run_results)
-        
-        if st.session_state.last_run_results:
-            # 이전 실행 결과 표시
-            for test_result in st.session_state.last_run_results:
-                st.write(f"**테스트 #{test_result['test_number']}**")
-                subcol1, subcol2 = st.columns(2)
-                for col, model_name in [(subcol1, '모델 A'), (subcol2, '모델 B')]:
-                    with col:
-                        response = test_result["models"][model_name]["response"]
-                        st.markdown(f"""
-                        <div style="border:1px solid #ddd; padding:10px; border-radius:5px;">
-                            <h4 style="margin-top:0;">{test_result["models"][model_name]["name"]}</h4>
-                            <p>{response}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                st.write("---")
-    else:
-        st.write("아직 사용자 입력이 없습니다.")
+    if st.session_state.test_results:
+        for test_result in st.session_state.test_results:
+            st.write(f"**사용자:** {test_result['user_input']}")
+            st.write(f"**테스트 #{test_result['test_number']}**")
+            subcol1, subcol2 = st.columns(2)
+            for col, model_key in [(subcol1, 'model_a'), (subcol2, 'model_b')]:
+                with col:
+                    st.markdown(f"""
+                    <div style="border:1px solid #ddd; padding:10px; border-radius:5px;">
+                        <h4 style="margin-top:0;">{st.session_state.current_settings[model_key]}</h4>
+                        <p>{test_result[f'{model_key}_response']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            st.write("---")
+    
+    if save_option:
+        save_results_to_json()
 
 # 설정 및 입력 부분 (오른쪽 칼럼)
 with col2:
@@ -192,8 +164,27 @@ with col2:
 
         # 대화 처리
         if st.button("전송"):
-            if st.session_state.user_input:
-                process_user_input_and_run_test()
+            if user_input:
+                st.session_state.test_results = []
+                for test_num in range(num_tests):
+                    test_result = {
+                        "test_number": test_num + 1,
+                        "user_input": user_input,
+                        "system_prompt": st.session_state.current_settings['system_prompt'],
+                    }
+                    for model_key in ['model_a', 'model_b']:
+                        response = generate_model_response(
+                            st.session_state.current_settings[model_key],
+                            st.session_state.current_settings['system_prompt'],
+                            user_input,
+                            st.session_state.current_settings[f'temperature_{model_key[-1]}'],
+                            st.session_state.current_settings[f'max_tokens_{model_key[-1]}'],
+                            st.session_state.current_settings[f'top_p_{model_key[-1]}'],
+                            st.session_state.current_settings[f'presence_penalty_{model_key[-1]}'],
+                            st.session_state.current_settings[f'frequency_penalty_{model_key[-1]}']
+                        )
+                        test_result[f"{model_key}_response"] = response
+                    st.session_state.test_results.append(test_result)
             else:
                 st.write("사용자 입력을 입력해주세요.")
 
