@@ -6,18 +6,17 @@ import os
 from dotenv import load_dotenv
 import requests
 import json
-import base64
 
-# .env 파일 로드 부분 제거
-# load_dotenv()
+# .env 파일 로드
+load_dotenv()
 
-# OpenAI 클라이언트 초기화
-api_key = st.secrets["OPENAI_API_KEY"]
+# OpenAI 클라이언트 초기화 (API 키가 없으면 None으로 설정)
+api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key) if api_key else None
 
 # Clova API 키 로드
-clova_api_key = st.secrets["CLOVA_API_KEY"]
-clova_apigw_key = st.secrets["CLOVA_APIGW_KEY"]
+clova_api_key = os.getenv("CLOVA_API_KEY")
+clova_apigw_key = os.getenv("CLOVA_APIGW_KEY")
 
 # Clova API 호출 함수
 def generate_clova_response(system_prompt, user_input, max_tokens, temperature, top_p):
@@ -43,7 +42,6 @@ def generate_clova_response(system_prompt, user_input, max_tokens, temperature, 
     response = requests.post(api_url, headers=headers, data=json.dumps(data))
     if response.status_code == 200:
         result = response.json()['result']
-        # 'message' 키 안의 'content' 값만 반환
         return result['message']['content']
     else:
         return f"Error: {response.status_code}, {response.text}"
@@ -234,23 +232,3 @@ with col2:
         st.session_state.current_settings['temperature_b'] = st.slider("Temperature (모델 B)", 0.0, 1.0, st.session_state.current_settings['temperature_b'], key="temperature_b")
         st.session_state.current_settings['max_tokens_b'] = st.slider("Max Tokens (모델 B)", 50, 2048, st.session_state.current_settings['max_tokens_b'], key="max_tokens_b")
         st.session_state.current_settings['top_p_b'] = st.slider("Top P (모델 B)", 0.0, 1.0, st.session_state.current_settings['top_p_b'], key="top_p_b")
-
-def get_download_link(data, filename, text):
-    json_str = json.dumps(data, ensure_ascii=False, indent=2)
-    b64 = base64.b64encode(json_str.encode()).decode()
-    href = f'<a href="data:file/json;base64,{b64}" download="{filename}">{text}</a>'
-    return href
-
-if st.button("결과 다운로드"):
-    json_data = {
-        "system_prompt": st.session_state.current_settings['system_prompt'],
-        "user_input": st.session_state.test_results[0]['user_input'],
-        "settings": {
-            "model_a": st.session_state.current_settings['model_a'],
-            "model_b": st.session_state.current_settings['model_b'],
-        },
-        "results": st.session_state.test_results
-    }
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"test_results_{timestamp}.json"
-    st.markdown(get_download_link(json_data, filename, "JSON 파일 다운로드"), unsafe_allow_html=True)
