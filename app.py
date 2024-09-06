@@ -4,6 +4,8 @@ from datetime import datetime
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+import requests
+import json
 
 # .env 파일 로드
 load_dotenv()
@@ -11,6 +13,38 @@ load_dotenv()
 # OpenAI 클라이언트 초기화 (API 키가 없으면 None으로 설정)
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key) if api_key else None
+
+# Clova API 키 로드
+clova_api_key = os.getenv("CLOVA_API_KEY")
+clova_apigw_key = os.getenv("CLOVA_APIGW_KEY")
+
+# Clova API 호출 함수
+def generate_clova_response(system_prompt, user_input, max_tokens, temperature, top_p):
+    api_url = "https://clovastudio.stream.ntruss.com/testapp/v1/chat-completions/HCX-DASH-001"
+    headers = {
+        "Content-Type": "application/json",
+        "X-NCP-CLOVASTUDIO-API-KEY": clova_api_key,
+        "X-NCP-APIGW-API-KEY": clova_apigw_key,
+        'X-NCP-CLOVASTUDIO-REQUEST-ID': '35c5350c-355d-4e46-a8d7-8b80a5c70c6f'
+    }
+    data = {
+        "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_input}
+                ],
+        "maxTokens": max_tokens,
+        "temperature": temperature,
+        "topP": top_p,
+        "n": 1,
+        "echo": False
+    }
+    
+    response = requests.post(api_url, headers=headers, data=json.dumps(data))
+    if response.status_code == 200:
+        result = response.json()['result']
+        return result['message']['content']
+    else:
+        return f"Error: {response.status_code}, {response.text}"
 
 # 페이지 설정을 와이드 모드로 변경하고 한글 폰트 지원
 st.set_page_config(layout="wide", page_title="AB Test Tool", page_icon="🤖")
@@ -36,17 +70,13 @@ if 'current_settings' not in st.session_state:
         'max_tokens_b': 256,
         'top_p_a': 1.0,
         'top_p_b': 1.0,
-        'presence_penalty_a': 0.0,
-        'presence_penalty_b': 0.0,
-        'frequency_penalty_a': 0.0,
-        'frequency_penalty_b': 0.0,
         'system_prompt': '당신은 도움이 되는 AI입니다.',
     }
 
 # 모델 응답을 생성하는 함수
-def generate_model_response(model, system_prompt, user_input, temperature, max_tokens, top_p, presence_penalty, frequency_penalty):
+def generate_model_response(model, system_prompt, user_input, temperature, max_tokens, top_p):
     if model == "ClovaX":
-        return f"ClovaX의 응답: 이것은 테스트 응답입니다. 한글 테스트: 안녕하세요."
+        return generate_clova_response(system_prompt, user_input, max_tokens, temperature, top_p)
     elif client is None:
         return "OpenAI API 키가 설정되지 않았습니다. .env 파일에 OPENAI_API_KEY를 추가해주세요."
     else:
@@ -59,9 +89,7 @@ def generate_model_response(model, system_prompt, user_input, temperature, max_t
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                top_p=top_p,
-                presence_penalty=presence_penalty,
-                frequency_penalty=frequency_penalty
+                top_p=top_p
             )
             return completion.choices[0].message.content
         except Exception as e:
@@ -83,16 +111,12 @@ def save_results_to_json():
                     "temperature": st.session_state.current_settings['temperature_a'],
                     "max_tokens": st.session_state.current_settings['max_tokens_a'],
                     "top_p": st.session_state.current_settings['top_p_a'],
-                    "presence_penalty": st.session_state.current_settings['presence_penalty_a'],
-                    "frequency_penalty": st.session_state.current_settings['frequency_penalty_a']
                 },
                 "model_b": {
                     "name": st.session_state.current_settings['model_b'],
                     "temperature": st.session_state.current_settings['temperature_b'],
                     "max_tokens": st.session_state.current_settings['max_tokens_b'],
                     "top_p": st.session_state.current_settings['top_p_b'],
-                    "presence_penalty": st.session_state.current_settings['presence_penalty_b'],
-                    "frequency_penalty": st.session_state.current_settings['frequency_penalty_b']
                 }
             },
             "results": [
@@ -112,17 +136,21 @@ def save_results_to_json():
 
 # 제목 및 설명
 st.title("Chatbot Arena")
-st.write("챗봇 아레나 방식으로 두 개의 LLM을 비교해보세요.")
 
 # 메인 레이아웃
 col1, col2 = st.columns([3, 1])
 
 # 결과 표시 부분 (왼쪽 칼럼)
 with col1:
+    st.subheader("사용 방법")
+    st.write("1. 모델 설정 탭에서 모델 A와 모델 B를 설정합니다. 모델 설정 탭에서 모델 A와 모델 B의 설정을 각각 변경할 수 있습니다.")
+    st.write("2. 채팅 인터페이스 탭에서 사용자 입력을 입력하고 전송 버튼을 클릭하여 테스트를 시작합니다.")
+    st.write("3. 결과를 확인 및 저장하려면 결과 저장 옵션을 선택시 저장 및 결과가 출력됩니다.")
+    st.write("4. 결과는 테스트 횟수만큼 출력되며, 테스트 횟수는 최대 30회까지 설정할 수 있습니다. 가장 마지막으로 수행된 테스트 결과 묶음이 저장됩니다.")
+    st.write("---")
     st.subheader("모델 응답 비교")
     
-    # 테스트 횟수 설정
-    num_tests = st.number_input("테스트 횟수", min_value=1, max_value=30, value=1, step=1)
+
     
     # 저장 옵션
     save_option = st.checkbox("결과 저장", value=False)
@@ -155,6 +183,12 @@ with col2:
     else:
         st.warning("OpenAI API 키가 설정되지 않았습니다. .env 파일에 OPENAI_API_KEY를 추가해주세요.")
     
+    if clova_api_key and clova_apigw_key:
+        st.success("Clova API 키가 설정되었습니다.")
+    else:
+        st.warning("Clova API 키가 설정되지 않았습니다. .env 파일에 CLOVA_API_KEY와 CLOVA_APIGW_KEY를 추가해주세요.")
+    # 테스트 횟수 설정
+    num_tests = st.number_input("테스트 횟수", min_value=1, max_value=30, value=1, step=1)
     tab1, tab2 = st.tabs(["채팅 인터페이스", "모델 설정"])
     
     # 채팅 인터페이스 탭
@@ -180,8 +214,6 @@ with col2:
                             st.session_state.current_settings[f'temperature_{model_key[-1]}'],
                             st.session_state.current_settings[f'max_tokens_{model_key[-1]}'],
                             st.session_state.current_settings[f'top_p_{model_key[-1]}'],
-                            st.session_state.current_settings[f'presence_penalty_{model_key[-1]}'],
-                            st.session_state.current_settings[f'frequency_penalty_{model_key[-1]}']
                         )
                         test_result[f"{model_key}_response"] = response
                     st.session_state.test_results.append(test_result)
@@ -193,15 +225,11 @@ with col2:
         st.subheader("모델 A 설정")
         st.session_state.current_settings['model_a'] = st.selectbox("모델 A 선택", ("gpt-3.5-turbo", "gpt-4", "ClovaX"), key="model_a")
         st.session_state.current_settings['temperature_a'] = st.slider("Temperature (모델 A)", 0.0, 1.0, st.session_state.current_settings['temperature_a'], key="temperature_a")
-        st.session_state.current_settings['max_tokens_a'] = st.slider("Max Tokens (모델 A)", 50, 1024, st.session_state.current_settings['max_tokens_a'], key="max_tokens_a")
+        st.session_state.current_settings['max_tokens_a'] = st.slider("Max Tokens (모델 A)", 50, 2048, st.session_state.current_settings['max_tokens_a'], key="max_tokens_a")
         st.session_state.current_settings['top_p_a'] = st.slider("Top P (모델 A)", 0.0, 1.0, st.session_state.current_settings['top_p_a'], key="top_p_a")
-        st.session_state.current_settings['presence_penalty_a'] = st.slider("Presence Penalty (모델 A)", -2.0, 2.0, st.session_state.current_settings['presence_penalty_a'], key="presence_penalty_a")
-        st.session_state.current_settings['frequency_penalty_a'] = st.slider("Frequency Penalty (모델 A)", -2.0, 2.0, st.session_state.current_settings['frequency_penalty_a'], key="frequency_penalty_a")
 
         st.subheader("모델 B 설정")
         st.session_state.current_settings['model_b'] = st.selectbox("모델 B 선택", ("gpt-3.5-turbo", "gpt-4", "ClovaX"), key="model_b")
         st.session_state.current_settings['temperature_b'] = st.slider("Temperature (모델 B)", 0.0, 1.0, st.session_state.current_settings['temperature_b'], key="temperature_b")
-        st.session_state.current_settings['max_tokens_b'] = st.slider("Max Tokens (모델 B)", 50, 1024, st.session_state.current_settings['max_tokens_b'], key="max_tokens_b")
+        st.session_state.current_settings['max_tokens_b'] = st.slider("Max Tokens (모델 B)", 50, 2048, st.session_state.current_settings['max_tokens_b'], key="max_tokens_b")
         st.session_state.current_settings['top_p_b'] = st.slider("Top P (모델 B)", 0.0, 1.0, st.session_state.current_settings['top_p_b'], key="top_p_b")
-        st.session_state.current_settings['presence_penalty_b'] = st.slider("Presence Penalty (모델 B)", -2.0, 2.0, st.session_state.current_settings['presence_penalty_b'], key="presence_penalty_b")
-        st.session_state.current_settings['frequency_penalty_b'] = st.slider("Frequency Penalty (모델 B)", -2.0, 2.0, st.session_state.current_settings['frequency_penalty_b'], key="frequency_penalty_b")
