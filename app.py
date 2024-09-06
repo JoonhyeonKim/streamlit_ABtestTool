@@ -136,6 +136,12 @@ def save_results_to_json():
     else:
         st.warning("저장할 테스트 결과가 없습니다.")
 
+def get_download_link(data, filename, text):
+    json_str = json.dumps(data, ensure_ascii=False, indent=2)
+    b64 = base64.b64encode(json_str.encode()).decode()
+    href = f'<a href="data:file/json;base64,{b64}" download="{filename}">{text}</a>'
+    return href
+
 # 제목 및 설명
 st.title("Chatbot Arena")
 
@@ -172,10 +178,26 @@ with col1:
                 "system_prompt": st.session_state.current_settings['system_prompt'],
                 "user_input": st.session_state.test_results[0]['user_input'],
                 "settings": {
-                    "model_a": st.session_state.current_settings['model_a'],
-                    "model_b": st.session_state.current_settings['model_b'],
+                    "model_a": {
+                        "name": st.session_state.current_settings['model_a'],
+                        "temperature": st.session_state.current_settings['temperature_a'],
+                        "max_tokens": st.session_state.current_settings['max_tokens_a'],
+                        "top_p": st.session_state.current_settings['top_p_a'],
+                    },
+                    "model_b": {
+                        "name": st.session_state.current_settings['model_b'],
+                        "temperature": st.session_state.current_settings['temperature_b'],
+                        "max_tokens": st.session_state.current_settings['max_tokens_b'],
+                        "top_p": st.session_state.current_settings['top_p_b'],
+                    }
                 },
-                "results": st.session_state.test_results
+                "results": [
+                    {
+                        "test_number": result['test_number'],
+                        "model_a_response": result['model_a_response'],
+                        "model_b_response": result['model_b_response']
+                    } for result in st.session_state.test_results
+                ]
             }
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"test_results_{timestamp}.json"
@@ -244,8 +266,3 @@ with col2:
         st.session_state.current_settings['max_tokens_b'] = st.slider("Max Tokens (모델 B)", 50, 2048, st.session_state.current_settings['max_tokens_b'], key="max_tokens_b")
         st.session_state.current_settings['top_p_b'] = st.slider("Top P (모델 B)", 0.0, 1.0, st.session_state.current_settings['top_p_b'], key="top_p_b")
 
-def get_download_link(data, filename, text):
-    json_str = json.dumps(data, ensure_ascii=False, indent=2)
-    b64 = base64.b64encode(json_str.encode()).decode()
-    href = f'<a href="data:file/json;base64,{b64}" download="{filename}">{text}</a>'
-    return href
