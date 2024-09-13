@@ -222,13 +222,13 @@ with col2:
     # 모델 설정 탭
     with tab2:
         st.subheader("모델 A 설정")
-        st.session_state.current_settings['model_a'] = st.selectbox("모델 A 선택", ("gpt-3.5-turbo", "gpt-4", "ClovaX"), key="model_a")
+        st.session_state.current_settings['model_a'] = st.selectbox("모델 A 선택", ("gpt-4o", "gpt-4o-mini", "ClovaX"), key="model_a")
         st.session_state.current_settings['temperature_a'] = st.slider("Temperature (모델 A)", 0.0, 1.0, st.session_state.current_settings['temperature_a'], key="temperature_a")
         st.session_state.current_settings['max_tokens_a'] = st.slider("Max Tokens (모델 A)", 50, 2048, st.session_state.current_settings['max_tokens_a'], key="max_tokens_a")
         st.session_state.current_settings['top_p_a'] = st.slider("Top P (모델 A)", 0.0, 1.0, st.session_state.current_settings['top_p_a'], key="top_p_a")
 
         st.subheader("모델 B 설정")
-        st.session_state.current_settings['model_b'] = st.selectbox("모델 B 선택", ("gpt-3.5-turbo", "gpt-4", "ClovaX"), key="model_b")
+        st.session_state.current_settings['model_b'] = st.selectbox("모델 B 선택", ("gpt-4o", "gpt-4o-mini", "ClovaX"), key="model_b")
         st.session_state.current_settings['temperature_b'] = st.slider("Temperature (모델 B)", 0.0, 1.0, st.session_state.current_settings['temperature_b'], key="temperature_b")
         st.session_state.current_settings['max_tokens_b'] = st.slider("Max Tokens (모델 B)", 50, 2048, st.session_state.current_settings['max_tokens_b'], key="max_tokens_b")
         st.session_state.current_settings['top_p_b'] = st.slider("Top P (모델 B)", 0.0, 1.0, st.session_state.current_settings['top_p_b'], key="top_p_b")
