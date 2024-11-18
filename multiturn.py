@@ -6,10 +6,10 @@ from datetime import datetime
 from typing import TypedDict, List
 
 # OpenAI API 키 설정
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+# client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 # OpenAI 클라이언트 초기화
-# api_key = st.secrets["OPENAI_API_KEY"]
-# client = OpenAI(api_key=api_key) if api_key else None
+api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=api_key) if api_key else None
 
 # 세션 상태 초기화
 if "messages" not in st.session_state:
