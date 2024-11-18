@@ -3,12 +3,13 @@ from openai import OpenAI
 import os
 import json
 from datetime import datetime
+from typing import TypedDict, List
 
 # OpenAI API 키 설정
-# client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 # OpenAI 클라이언트 초기화
-api_key = st.secrets["OPENAI_API_KEY"]
-client = OpenAI(api_key=api_key) if api_key else None
+# api_key = st.secrets["OPENAI_API_KEY"]
+# client = OpenAI(api_key=api_key) if api_key else None
 
 # 세션 상태 초기화
 if "messages" not in st.session_state:
@@ -28,7 +29,7 @@ if new_system_prompt != st.session_state.system_prompt:
 # 모델 선택
 model = st.sidebar.selectbox(
     "AI 모델을 선택하세요:",
-    ("gpt-4o-mini", "gpt-3.5-turbo")
+    ("gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo")
 )
 
 # 추가 매개변수 설정
@@ -46,6 +47,16 @@ for idx, message in enumerate(st.session_state.messages):
 # 채팅 입력 부분을 대화 기록 초기화 버튼 바로 위로 이동
 user_input = st.text_input("메시지를 입력하세요:", key="user_input")
 
+# 응답 구조체 정의
+class ChatResponse(TypedDict):
+    total_round: int
+    answer_count: int
+    current_answer: str
+    hint: List[str]
+    check_answer: bool
+    is_end: bool
+    message: str
+
 # 메시지 전송 버튼
 if st.button("전송"):
     if user_input:
@@ -54,19 +65,43 @@ if st.button("전송"):
         
         # AI 응답 생성
         response = client.chat.completions.create(
-            model=model,  # 선택된 모델 사용
+            model=model,
             messages=[
                 {"role": "system", "content": st.session_state.system_prompt},
                 *st.session_state.messages
             ],
             temperature=temperature,
             max_tokens=max_tokens,
-            top_p=top_p
+            top_p=top_p,
+            response_format={ "type": "json_object" }  # JSON 응답 형식 지정
         )
         
-        # AI 응답을 대화 기록에 추가
-        ai_response = response.choices[0].message.content
-        st.session_state.messages.append({"role": "assistant", "content": ai_response})
+        # AI 응답을 파싱
+        try:
+            ai_response = response.choices[0].message.content
+            structured_response = json.loads(ai_response)
+            
+            # 응답 구조 검증
+            validated_response = ChatResponse(
+                total_round=structured_response.get('total_round', 1),
+                answer_count=structured_response.get('answer_count', 0),
+                current_answer=structured_response.get('current_answer', ''),
+                hint=structured_response.get('hint', []),
+                check_answer=structured_response.get('check_answer', False),
+                is_end=structured_response.get('is_end', False),
+                message=structured_response.get('message', '')
+            )
+            
+            # 대화 기록에 추가
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
+            })
+            
+        except json.JSONDecodeError:
+            st.error("AI 응답을 JSON으로 파싱할 수 없습니다.")
+        except Exception as e:
+            st.error(f"오류가 발생했습니다: {str(e)}")
         
         # 페이지 새로고침
         st.rerun()
