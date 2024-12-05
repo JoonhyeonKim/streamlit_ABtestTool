@@ -21,19 +21,10 @@ st.title("멀티턴 AI 채팅 테스트")
 
 # 사이드바에 설정 추가
 st.sidebar.title("설정")
-# A/B 테스트 활성화 여부
-ab_testing_enabled = st.sidebar.checkbox("A/B 테스트 사용")
-if ab_testing_enabled:
-    # 두 개의 시스템 프롬프트 선택
-    prompt_options = {
-        "Prompt A": "당신은 도움이 되는 AI 어시스턴트입니다.",
-        "Prompt B": "당신은 지식이 풍부한 AI 도우미입니다."
-    }
-    selected_prompt = st.sidebar.selectbox("시스템 프롬프트 선택:", list(prompt_options.keys()))
-    st.session_state.system_prompt = prompt_options[selected_prompt]  # 선택된 프롬프트로 설정
-else:
-    st.session_state.system_prompt = "당신은 도움이 되는 AI 어시스턴트입니다."  # 기본 프롬프트
-st.session_state.messages = []  # 시스템 프롬프트가 변경되면 대화 기록 초기화
+new_system_prompt = st.sidebar.text_area("시스템 프롬프트:", value=st.session_state.system_prompt, height=100)
+if new_system_prompt != st.session_state.system_prompt:
+    st.session_state.system_prompt = new_system_prompt
+    st.session_state.messages = []  # 시스템 프롬프트가 변경되면 대화 기록 초기화
 
 # 모델 선택
 model = st.sidebar.selectbox(
