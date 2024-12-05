@@ -30,13 +30,13 @@ if new_system_prompt != st.session_state.system_prompt:
 # A/B 테스트 활성화 여부
 ab_testing_enabled = st.sidebar.checkbox("A/B 테스트 사용")
 if ab_testing_enabled:
-    # 두 개의 시스템 프롬프트 선택
-    prompt_options = {
-        "Prompt A": "당신은 도움이 되는 AI 어시스턴트입니다.",
-        "Prompt B": "당신은 지식이 풍부한 AI 도우미입니다."
-    }
-    selected_prompt = st.sidebar.selectbox("시스템 프롬프트 선택:", list(prompt_options.keys()))
-    st.session_state.system_prompt = prompt_options[selected_prompt]  # 선택된 프롬프트로 설정
+    # 사용자 정의 시스템 프롬프트 입력
+    prompt_a = st.sidebar.text_area("Prompt A:", value="당신은 도움이 되는 AI 어시스턴트입니다.", height=100)
+    prompt_b = st.sidebar.text_area("Prompt B:", value="당신은 지식이 풍부한 AI 도우미입니다.", height=100)
+    
+    # 선택된 프롬프트 설정
+    selected_prompt = st.sidebar.selectbox("시스템 프롬프트 선택:", ["Prompt A", "Prompt B"])
+    st.session_state.system_prompt = prompt_a if selected_prompt == "Prompt A" else prompt_b
 else:
     st.session_state.system_prompt = "당신은 도움이 되는 AI 어시스턴트입니다."  # 기본 프롬프트
 st.session_state.messages = []  # 시스템 프롬프트가 변경되면 대화 기록 초기화
