@@ -33,38 +33,40 @@ model = st.sidebar.selectbox(
     ("gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo")
 )
 
-# A/B 테스트 활성화 여부
-ab_testing_enabled = st.sidebar.checkbox("A/B 테스트 사용")
 # 추가 매개변수 설정
 temperature = st.sidebar.slider("Temperature:", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
 max_tokens = st.sidebar.number_input("최대 토큰 수:", min_value=1, max_value=4096, value=256, step=1)
 top_p = st.sidebar.slider("Top P:", min_value=0.0, max_value=1.0, value=1.0, step=0.1)
 num_iterations = st.sidebar.number_input("반복 횟수:", min_value=1, max_value=10, value=1, step=1)
 
-
+# A/B 테스트 활성화 여부
+ab_testing_enabled = st.sidebar.checkbox("A/B 테스트 사용")
 if ab_testing_enabled:
     # 사용자 정의 시스템 프롬프트 입력
-    prompt_a = st.sidebar.text_area("Prompt A:", value=st.session_state.get("system_prompt", "당신은 도움이 되는 AI 어시스턴트입니다."), height=100)
+    prompt_a = st.sidebar.text_area("Prompt A:", value=st.session_state.system_prompt, height=100)
     prompt_b = st.sidebar.text_area("Prompt B:", value="당신은 지식이 풍부한 AI 도우미입니다.", height=100)
     
+    # 선택된 프롬프트 설정
+    selected_prompt = st.sidebar.selectbox("시스템 프롬프트 선택:", ["Prompt A", "Prompt B"])
+    
     # AI 응답 생성 반복
-    responses = []
     for _ in range(num_iterations):
+        # 두 프롬프트에 대해 AI 응답 생성
+        responses = []
         for prompt in [prompt_a, prompt_b]:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    *st.session_state.messages
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                response_format={"type": "json_object"}  # JSON 응답 형식 지정
+            )
+            # AI 응답을 파싱
             try:
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": prompt},
-                        *st.session_state.messages
-                    ],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    top_p=top_p,
-                    response_format={"type": "json_object"}  # JSON 응답 형식 지정
-                )
-                
-                # AI 응답을 파싱
                 ai_response = response.choices[0].message.content
                 structured_response = json.loads(ai_response)
                 responses.append(structured_response)
@@ -72,13 +74,13 @@ if ab_testing_enabled:
                 st.error("AI 응답을 JSON으로 파싱할 수 없습니다.")
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {str(e)}")
-    
-    # 대화 기록에 추가
-    for idx, validated_response in enumerate(responses):
-        st.session_state.messages.append({
-            "role": "assistant", 
-            "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
-        })
+        
+        # 대화 기록에 추가
+        for idx, validated_response in enumerate(responses):
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
+            })
 else:
     # 기존 코드 유지
     st.session_state.system_prompt = "당신은 도움이 되는 AI 어시스턴트입니다."  # 기본 프롬프트
