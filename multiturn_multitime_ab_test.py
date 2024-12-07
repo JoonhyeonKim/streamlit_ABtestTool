@@ -39,7 +39,8 @@ for idx, prompt in enumerate(st.session_state.system_prompts):
 st.sidebar.write("**선택된 프롬프트:**")
 if st.session_state.selected_prompts:
     for idx in st.session_state.selected_prompts:
-        st.sidebar.write(f"버전 {idx + 1}: {st.session_state.system_prompts[idx]}")
+        with st.sidebar.expander(f"버전 {idx + 1}"):
+            st.write(st.session_state.system_prompts[idx])
 else:
     st.sidebar.write("선택된 프롬프트가 없습니다.")
 
