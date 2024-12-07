@@ -14,8 +14,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "system_prompts" not in st.session_state:
     st.session_state.system_prompts = ["당신은 도움이 되는 AI 어시스턴트입니다."]
-if "selected_prompt" not in st.session_state:
-    st.session_state.selected_prompt = 0
+if "selected_prompts" not in st.session_state:
+    st.session_state.selected_prompts = []
 
 st.title("멀티턴 AI 채팅 테스트")
 
@@ -27,14 +27,21 @@ if st.sidebar.button("프롬프트 추가") and new_system_prompt:
 
 # 현재 프롬프트 리스트와 선택 옵션
 st.sidebar.write("### 현재 시스템 프롬프트")
-prompt_buttons = []
 for idx, prompt in enumerate(st.session_state.system_prompts):
-    if st.sidebar.button(f"버전 {idx + 1}"):
-        st.session_state.selected_prompt = idx
+    if st.sidebar.checkbox(f"버전 {idx + 1}", key=f"prompt_{idx}"):
+        if idx not in st.session_state.selected_prompts:
+            st.session_state.selected_prompts.append(idx)
+    else:
+        if idx in st.session_state.selected_prompts:
+            st.session_state.selected_prompts.remove(idx)
 
 # 선택된 프롬프트 표시
-st.sidebar.write(f"**선택된 프롬프트 (버전 {st.session_state.selected_prompt + 1}):**")
-st.sidebar.write(st.session_state.system_prompts[st.session_state.selected_prompt])
+st.sidebar.write("**선택된 프롬프트:**")
+if st.session_state.selected_prompts:
+    for idx in st.session_state.selected_prompts:
+        st.sidebar.write(f"버전 {idx + 1}: {st.session_state.system_prompts[idx]}")
+else:
+    st.sidebar.write("선택된 프롬프트가 없습니다.")
 
 # 모델 선택
 model = st.sidebar.selectbox(
@@ -77,40 +84,41 @@ if st.button("전송"):
         # AI 응답 생성 반복
         for _ in range(num_iterations):
             responses = []
-            try:
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": st.session_state.system_prompts[st.session_state.selected_prompt]},
-                        *st.session_state.messages
-                    ],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    top_p=top_p,
-                    response_format={"type": "json_object"}
-                )
+            for idx in st.session_state.selected_prompts:
+                try:
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": st.session_state.system_prompts[idx]},
+                            *st.session_state.messages
+                        ],
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        top_p=top_p,
+                        response_format={"type": "json_object"}
+                    )
 
-                ai_response = response.choices[0].message.content
-                structured_response = json.loads(ai_response)
+                    ai_response = response.choices[0].message.content
+                    structured_response = json.loads(ai_response)
 
-                validated_response = ChatResponse(
-                    total_round=structured_response.get('total_round', 1),
-                    answer_count=structured_response.get('answer_count', 0),
-                    current_answer=structured_response.get('current_answer', ''),
-                    hint=structured_response.get('hint', []),
-                    check_answer=structured_response.get('check_answer', False),
-                    is_end=structured_response.get('is_end', False),
-                    message=structured_response.get('message', '')
-                )
+                    validated_response = ChatResponse(
+                        total_round=structured_response.get('total_round', 1),
+                        answer_count=structured_response.get('answer_count', 0),
+                        current_answer=structured_response.get('current_answer', ''),
+                        hint=structured_response.get('hint', []),
+                        check_answer=structured_response.get('check_answer', False),
+                        is_end=structured_response.get('is_end', False),
+                        message=structured_response.get('message', '')
+                    )
 
-                responses.append({
-                    "role": "assistant",
-                    "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
-                })
-            except json.JSONDecodeError:
-                st.error("AI 응답을 JSON으로 파싱할 수 없습니다.")
-            except Exception as e:
-                st.error(f"오류가 발생했습니다: {str(e)}")
+                    responses.append({
+                        "role": "assistant",
+                        "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
+                    })
+                except json.JSONDecodeError:
+                    st.error("AI 응답을 JSON으로 파싱할 수 없습니다.")
+                except Exception as e:
+                    st.error(f"오류가 발생했습니다: {str(e)}")
 
             # 대화 기록에 추가
             st.session_state.messages.extend(responses)
@@ -127,7 +135,7 @@ if st.button("대화 기록 초기화"):
 if st.button("대화 내용 다운로드"):
     chat_data = {
         "system_prompts": st.session_state.system_prompts,
-        "selected_prompt": st.session_state.system_prompts[st.session_state.selected_prompt],
+        "selected_prompts": [st.session_state.system_prompts[idx] for idx in st.session_state.selected_prompts],
         "messages": st.session_state.messages,
         "model": model,
         "temperature": temperature,
