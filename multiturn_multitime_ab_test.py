@@ -6,26 +6,27 @@ from datetime import datetime
 from typing import TypedDict, List
 
 # OpenAI API 키 설정
-# client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-# OpenAI 클라이언트 초기화
 api_key = st.secrets["OPENAI_API_KEY"]
 client = OpenAI(api_key=api_key) if api_key else None
 
 # 세션 상태 초기화
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "system_prompt" not in st.session_state:
-    st.session_state.system_prompt = "당신은 도움이 되는 AI 어시스턴트입니다."
+if "system_prompts" not in st.session_state:
+    st.session_state.system_prompts = ["당신은 도움이 되는 AI 어시스턴트입니다."]
 
 st.title("멀티턴 AI 채팅 테스트")
 
 # 사이드바에 설정 추가
 st.sidebar.title("설정")
-# 사용자 정의 시스템 프롬프트 입력
-new_system_prompt = st.sidebar.text_area("시스템 프롬프트:", value=st.session_state.system_prompt, height=100)
-if new_system_prompt != st.session_state.system_prompt:
-    st.session_state.system_prompt = new_system_prompt
-    st.session_state.messages = []  # 시스템 프롬프트가 변경되면 대화 기록 초기화
+new_system_prompt = st.sidebar.text_area("새 시스템 프롬프트 추가:", height=100)
+if st.sidebar.button("프롬프트 추가") and new_system_prompt:
+    st.session_state.system_prompts.append(new_system_prompt)
+
+# 현재 프롬프트 리스트
+st.sidebar.write("### 현재 시스템 프롬프트")
+for idx, prompt in enumerate(st.session_state.system_prompts):
+    st.sidebar.write(f"{idx + 1}. {prompt}")
 
 # 모델 선택
 model = st.sidebar.selectbox(
@@ -38,53 +39,6 @@ temperature = st.sidebar.slider("Temperature:", min_value=0.0, max_value=1.0, va
 max_tokens = st.sidebar.number_input("최대 토큰 수:", min_value=1, max_value=4096, value=256, step=1)
 top_p = st.sidebar.slider("Top P:", min_value=0.0, max_value=1.0, value=1.0, step=0.1)
 num_iterations = st.sidebar.number_input("반복 횟수:", min_value=1, max_value=10, value=1, step=1)
-
-# A/B 테스트 활성화 여부
-ab_testing_enabled = st.sidebar.checkbox("A/B 테스트 사용")
-if ab_testing_enabled:
-    # 사용자 정의 시스템 프롬프트 입력
-    prompt_a = st.sidebar.text_area("Prompt A:", value=st.session_state.system_prompt, height=100)
-    prompt_b = st.sidebar.text_area("Prompt B:", value="당신은 지식이 풍부한 AI 도우미입니다.", height=100)
-    
-    # 선택된 프롬프트 설정
-    selected_prompt = st.sidebar.selectbox("시스템 프롬프트 선택:", ["Prompt A", "Prompt B"])
-    
-    # AI 응답 생성 반복
-    for _ in range(num_iterations):
-        # 두 프롬프트에 대해 AI 응답 생성
-        responses = []
-        for prompt in [prompt_a, prompt_b]:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": prompt},
-                    *st.session_state.messages
-                ],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                response_format={"type": "json_object"}  # JSON 응답 형식 지정
-            )
-            # AI 응답을 파싱
-            try:
-                ai_response = response.choices[0].message.content
-                structured_response = json.loads(ai_response)
-                responses.append(structured_response)
-            except json.JSONDecodeError:
-                st.error("AI 응답을 JSON으로 파싱할 수 없습니다.")
-            except Exception as e:
-                st.error(f"오류가 발생했습니다: {str(e)}")
-        
-        # 대화 기록에 추가
-        for idx, validated_response in enumerate(responses):
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
-            })
-else:
-    # 기존 코드 유지
-    st.session_state.system_prompt = "당신은 도움이 되는 AI 어시스턴트입니다."  # 기본 프롬프트
-
 
 # 대화 기록 표시
 for idx, message in enumerate(st.session_state.messages):
@@ -111,48 +65,49 @@ if st.button("전송"):
     if user_input:
         # 사용자 메시지를 대화 기록에 추가
         st.session_state.messages.append({"role": "user", "content": user_input})
-        
+
         # AI 응답 생성 반복
         for _ in range(num_iterations):
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": st.session_state.system_prompt},
-                    *st.session_state.messages
-                ],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                response_format={ "type": "json_object" }  # JSON 응답 형식 지정
-            )
-            
-            # AI 응답을 파싱
-            try:
-                ai_response = response.choices[0].message.content
-                structured_response = json.loads(ai_response)
-                
-                # 응답 구조 검증
-                validated_response = ChatResponse(
-                    total_round=structured_response.get('total_round', 1),
-                    answer_count=structured_response.get('answer_count', 0),
-                    current_answer=structured_response.get('current_answer', ''),
-                    hint=structured_response.get('hint', []),
-                    check_answer=structured_response.get('check_answer', False),
-                    is_end=structured_response.get('is_end', False),
-                    message=structured_response.get('message', '')
-                )
-                
-                # 대화 기록에 추가
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
-                })
-                
-            except json.JSONDecodeError:
-                st.error("AI 응답을 JSON으로 파싱할 수 없습니다.")
-            except Exception as e:
-                st.error(f"오류가 발생했습니다: {str(e)}")
-        
+            responses = []
+            for prompt in st.session_state.system_prompts:
+                try:
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": prompt},
+                            *st.session_state.messages
+                        ],
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        top_p=top_p,
+                        response_format={"type": "json_object"}
+                    )
+
+                    ai_response = response.choices[0].message.content
+                    structured_response = json.loads(ai_response)
+
+                    validated_response = ChatResponse(
+                        total_round=structured_response.get('total_round', 1),
+                        answer_count=structured_response.get('answer_count', 0),
+                        current_answer=structured_response.get('current_answer', ''),
+                        hint=structured_response.get('hint', []),
+                        check_answer=structured_response.get('check_answer', False),
+                        is_end=structured_response.get('is_end', False),
+                        message=structured_response.get('message', '')
+                    )
+
+                    responses.append({
+                        "role": "assistant",
+                        "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
+                    })
+                except json.JSONDecodeError:
+                    st.error("AI 응답을 JSON으로 파싱할 수 없습니다.")
+                except Exception as e:
+                    st.error(f"오류가 발생했습니다: {str(e)}")
+
+            # 대화 기록에 추가
+            st.session_state.messages.extend(responses)
+
         # 페이지 새로고침
         st.rerun()
 
@@ -164,7 +119,7 @@ if st.button("대화 기록 초기화"):
 # 대화 내용 JSON 다운로드 버튼
 if st.button("대화 내용 다운로드"):
     chat_data = {
-        "system_prompt": st.session_state.system_prompt,
+        "system_prompts": st.session_state.system_prompts,
         "messages": st.session_state.messages,
         "model": model,
         "temperature": temperature,
@@ -180,5 +135,3 @@ if st.button("대화 내용 다운로드"):
         file_name=filename,
         mime="application/json"
     )
-    
-    
