@@ -31,7 +31,7 @@ if new_system_prompt != st.session_state.system_prompt:
 ab_testing_enabled = st.sidebar.checkbox("A/B 테스트 사용")
 if ab_testing_enabled:
     # 사용자 정의 시스템 프롬프트 입력
-    prompt_a = st.sidebar.text_area("Prompt A:", value="당신은 도움이 되는 AI 어시스턴트입니다.", height=100)
+    prompt_a = st.sidebar.text_area("Prompt A:", value=st.session_state.system_prompt, height=100)
     prompt_b = st.sidebar.text_area("Prompt B:", value="당신은 지식이 풍부한 AI 도우미입니다.", height=100)
     
     # 선택된 프롬프트 설정
@@ -116,7 +116,7 @@ if st.button("전송"):
                 })
                 
             except json.JSONDecodeError:
-                st.error("AI 응답을 JSON으로 파싱할 수 없습니다.")
+                st.error("AI ���답을 JSON으로 파싱할 수 없습니다.")
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {str(e)}")
         
@@ -147,4 +147,22 @@ if st.button("대화 내용 다운로드"):
         file_name=filename,
         mime="application/json"
     )
+
+# 대화 기록 � 피드백 저장
+if st.button("피드백 제공"):
+    feedback = st.text_area("AI 응답에 대한 피드백:", height=100)
+    if feedback:
+        # 피드백과 이전 프롬프트 및 응답 저장
+        st.session_state.messages.append({
+            "role": "feedback",
+            "content": feedback
+        })
+        st.session_state.messages.append({
+            "role": "previous_prompt",
+            "content": st.session_state.system_prompt
+        })
+        st.session_state.messages.append({
+            "role": "previous_response",
+            "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
+        })
     
