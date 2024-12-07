@@ -61,7 +61,8 @@ for idx, message in enumerate(st.session_state.messages):
     if message["role"] == "user":
         st.text_area("사용자:", value=message["content"], height=100, disabled=True, key=f"user_{idx}")
     else:
-        st.text_area("AI:", value=message["content"], height=100, disabled=True, key=f"ai_{idx}")
+        with st.expander(f"AI 응답 (프롬프트 버전 {message.get('prompt_version', '알 수 없음')})"):
+            st.text_area("AI:", value=message["content"], height=100, disabled=True, key=f"ai_{idx}")
 
 # 채팅 입력 부분을 대화 기록 초기화 버튼 바로 위로 이동
 user_input = st.text_input("메시지를 입력하세요:", key="user_input")
@@ -114,7 +115,8 @@ if st.button("전송"):
 
                     responses.append({
                         "role": "assistant",
-                        "content": json.dumps(validated_response, ensure_ascii=False, indent=2)
+                        "content": json.dumps(validated_response, ensure_ascii=False, indent=2),
+                        "prompt_version": idx + 1
                     })
                 except json.JSONDecodeError:
                     st.error("AI 응답을 JSON으로 파싱할 수 없습니다.")
