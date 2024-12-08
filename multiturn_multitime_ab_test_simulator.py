@@ -137,26 +137,27 @@ if st.button("시뮬레이션 실행"):
                         messages=[{"role": "system", "content": simulation_prompt}] + messages,
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        top_p=top_p,
-                        # response_format={"type": "json_object"}
+                        top_p=top_p
                     )
 
                     ai_response_b = response_b.choices[0].message.content
-                    structured_response_b = json.loads(ai_response_b)
 
-                    validated_response_b = ChatResponse(
-                        total_round=structured_response_b.get('total_round', 1),
-                        answer_count=structured_response_b.get('answer_count', 0),
-                        current_answer=structured_response_b.get('current_answer', ''),
-                        hint=structured_response_b.get('hint', []),
-                        check_answer=structured_response_b.get('check_answer', False),
-                        is_end=structured_response_b.get('is_end', False),
-                        message=structured_response_b.get('message', '')
-                    )
+                    try:
+                        structured_response_b = json.loads(ai_response_b)
+                        validated_response_b = ChatResponse(
+                            total_round=structured_response_b.get('total_round', 1),
+                            answer_count=structured_response_b.get('answer_count', 0),
+                            current_answer=structured_response_b.get('current_answer', ''),
+                            hint=structured_response_b.get('hint', []),
+                            check_answer=structured_response_b.get('check_answer', False),
+                            is_end=structured_response_b.get('is_end', False),
+                            message=structured_response_b.get('message', '')
+                        )
+                        messages.append({"role": "assistant", "content": validated_response_b["message"]})
+                    except json.JSONDecodeError:
+                        messages.append({"role": "assistant", "content": ai_response_b})
 
-                    messages.append({"role": "assistant", "content": validated_response_b["message"]})
-
-                    if validated_response_a["is_end"] or validated_response_b["is_end"]:
+                    if validated_response_a["is_end"]:
                         break
 
                 except json.JSONDecodeError:
