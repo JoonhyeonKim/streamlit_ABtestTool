@@ -78,8 +78,6 @@ user_input = st.text_input("사용자 메시지를 입력하세요:", key="user_
 if st.button("메시지 추가"):
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
-        # 페이지를 새로고침하는 대신 입력된 메시지를 업데이트
-        st.query_params["reload"] = "true"
 
 # 응답 구조체 정의
 class ChatResponse(TypedDict):
@@ -142,21 +140,7 @@ if st.button("시뮬레이션 실행"):
                     )
 
                     ai_response_b = response_b.choices[0].message.content
-
-                    try:
-                        structured_response_b = json.loads(ai_response_b)
-                        validated_response_b = ChatResponse(
-                            total_round=structured_response_b.get('total_round', 1),
-                            answer_count=structured_response_b.get('answer_count', 0),
-                            current_answer=structured_response_b.get('current_answer', ''),
-                            hint=structured_response_b.get('hint', []),
-                            check_answer=structured_response_b.get('check_answer', False),
-                            is_end=structured_response_b.get('is_end', False),
-                            message=structured_response_b.get('message', '')
-                        )
-                        messages.append({"role": "assistant", "content": validated_response_b["message"]})
-                    except json.JSONDecodeError:
-                        messages.append({"role": "assistant", "content": ai_response_b})
+                    messages.append({"role": "user", "content": ai_response_b})
 
                     if validated_response_a["is_end"]:
                         break
@@ -177,14 +161,13 @@ if st.button("시뮬레이션 실행"):
     st.write("### 시뮬레이션 결과")
     for result in simulation_results:
         with st.expander(f"테스트 프롬프트 버전 {result['prompt_version']} 결과"):
-            for message in result['response']:
+            for idx, message in enumerate(result['response']):
                 role = "사용자" if message["role"] == "user" else "AI"
-                st.text_area(f"{role}:", value=message["content"], height=100, disabled=True)
+                st.text_area(f"{role} {idx+1}:", value=message["content"], height=100, disabled=True, key=f"{role}_{idx}")
 
 # 대화 기록 초기화 버튼
 if st.button("대화 기록 초기화"):
     st.session_state.messages = []  # 대화 기록 초기화
-    # 페이지 새로고침 없이 상태 반영
     st.write("대화 기록이 초기화되었습니다.")
 
 # 대화 내용 JSON 다운로드 버튼
