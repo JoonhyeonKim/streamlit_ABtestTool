@@ -79,7 +79,7 @@ if st.button("메시지 추가"):
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
         # 페이지를 새로고침하는 대신 입력된 메시지를 업데이트
-        st.experimental_set_query_params(reload="true")
+        st.query_params["reload"] = "true"
 
 # 응답 구조체 정의
 class ChatResponse(TypedDict):
