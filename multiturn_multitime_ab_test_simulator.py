@@ -138,7 +138,7 @@ if st.button("시뮬레이션 실행"):
                         temperature=temperature,
                         max_tokens=max_tokens,
                         top_p=top_p,
-                        response_format={"type": "json_object"}
+                        # response_format={"type": "json_object"}
                     )
 
                     ai_response_b = response_b.choices[0].message.content
