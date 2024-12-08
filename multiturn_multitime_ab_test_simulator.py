@@ -183,8 +183,9 @@ if st.button("시뮬레이션 실행"):
 
 # 대화 기록 초기화 버튼
 if st.button("대화 기록 초기화"):
-    st.session_state.messages = []
-    st.experimental_rerun()
+    st.session_state.messages = []  # 대화 기록 초기화
+    # 페이지 새로고침 없이 상태 반영
+    st.write("대화 기록이 초기화되었습니다.")
 
 # 대화 내용 JSON 다운로드 버튼
 if st.button("대화 내용 다운로드"):
