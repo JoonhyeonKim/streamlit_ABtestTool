@@ -74,11 +74,11 @@ for idx, message in enumerate(st.session_state.messages):
         st.text_area("AI:", value=message["content"], height=100, disabled=True, key=f"ai_{idx}")
 
 # 채팅 입력 부분
-user_input = st.text_input("메시지를 입력하세요:", key="user_input")
 if st.button("메시지 추가"):
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
-        st.experimental_rerun()
+        # 페이지를 새로고침하는 대신 입력된 메시지를 업데이트
+        st.experimental_set_query_params(reload="true")
 
 # 응답 구조체 정의
 class ChatResponse(TypedDict):
