@@ -74,6 +74,7 @@ for idx, message in enumerate(st.session_state.messages):
         st.text_area("AI:", value=message["content"], height=100, disabled=True, key=f"ai_{idx}")
 
 # 채팅 입력 부분
+user_input = st.text_input("사용자 메시지를 입력하세요:", key="user_input")  # 사용자 입력 정의
 if st.button("메시지 추가"):
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
